@@ -1,0 +1,7 @@
+{
+  "git_config": {
+    "expected_jira_id_list": ["EDGE-104108", "EDGE-91189"],
+    "base_repo_path": "D:\\Office_work\\b2b_s2p_data_platform",
+    "target_repo_path": "D:\\Office_work\\b2b_s2p_data_platform_copy"
+  }
+}
