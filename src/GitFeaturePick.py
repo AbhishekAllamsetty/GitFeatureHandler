@@ -25,6 +25,24 @@ class GitFeaturePick:
         self.base_repo = Repo(self.config_params['git_config']['base_repo_path'])
         self.target_repo = Repo(self.config_params['git_config']['target_repo_path'])
 
+    def checkout_tgt_branch(self):
+        """
+
+        :return:
+        """
+        tgt_branch = self.config_params['git_config']['target_branch']
+        try:
+            # trying to checkout as new branch first
+            # in case it exists then we will checkout normally
+            self.logger.info("Trying to checkout  '{}'  as new branch".format(tgt_branch))
+            self.target_repo.git.checkout("-b", tgt_branch)
+
+        except Exception as ex:
+            # if exception is raised it means the branch is already available
+            # so checking out locally
+            self.logger.info("Target branch available. Checking out to  '{}'  locally".format(tgt_branch))
+            self.target_repo.git.checkout(tgt_branch)
+
     def get_unsorted_commits(self):
         """
         This function is used to get the list of unsorted list commits
@@ -240,6 +258,9 @@ class GitFeaturePick:
         try:
             self.logger.info("Initializing the commits collection")
 
+            # checkout to target branch
+            self.checkout_tgt_branch()
+
             # getting unsorted commits
             self.get_unsorted_commits()
 
@@ -267,6 +288,17 @@ class GitFeaturePick:
                 # rename file/ dir
                 self.logger.info("Handling rename files/dir for commit  ::  {}".format(commit))
                 self.handle_renamed_types()
+
+            # adding the changes to repo
+            self.logger.info("Adding all the changes")
+            self.target_repo.git.add(u=True)
+
+            # commiting and pushing the changes
+            self.logger.info("Committing and pushing changes")
+            self.target_repo.index.commit("Committing Changes")
+            self.target_repo.git.push('origin', self.config_params['git_config']['target_branch'])
+            # origin = self.target_repo.remote(name=)
+            # origin.push()
 
             self.logger.info("Job Successful!!")
 
