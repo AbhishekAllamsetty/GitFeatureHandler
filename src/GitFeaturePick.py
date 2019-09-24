@@ -3,7 +3,10 @@ from datetime import datetime
 import logging
 import json
 import sys
+from os import path
 import os
+import shutil
+import pathlib
 
 
 class GitFeaturePick:
@@ -81,7 +84,7 @@ class GitFeaturePick:
                     # in case of file re-write we need to rewrite file name
                     # so taking old name and new name
                     tmp_dit = {
-                        'old_path': item.b_blob.path,
+                        'existing_path': item.b_blob.path,
                         'new_path': item.a_path
                     }
                     self.config_params['file_types']['R'].append(tmp_dit)
@@ -89,28 +92,145 @@ class GitFeaturePick:
         except Exception as ex:
             raise Exception("identify_changes()  ::  {}".format(ex))
 
+    def get_abs_path(self, file):
+        """
+        this will conact the file path with base dir
+        replace / -> \
+        for destination path file name will be removed and will its parent dir
+        Not returning target path as path object as it needs to go with some enhancements
+        respective to removals of file name from path
+        :param file: file along with repo path
+        :return: base_dir + file_path + file_name/parent_dir
+        """
+        try:
+            source_base_path = self.config_params['git_config']['base_repo_path']
+            target_base_path = self.config_params['git_config']['target_repo_path']
+
+            # appending file with source path
+            src = source_base_path + "\\" + file.replace("/", "\\")
+
+            # appending file with destination path and removing the last index (i.e file name)
+            tgt = target_base_path + "\\" + file.replace("/", "\\")
+
+            return self.get_path_obj(src), self.get_path_obj(tgt)
+
+        except Exception as ex:
+            raise Exception("get_abs_path()  :: {}".format(ex))
+
     def handle_modified_types(self):
         """
         here we force copy all the files from source branch to target branch
         :return: None
         """
         try:
-            source_base_path = self.config_params['git_config']['base_repo_path']
-            target_base_path = self.config_params['git_config']['target_repo_path']
-
             for file in self.config_params['file_types']['M']:
-                # appending file with source path
-                src = source_base_path + "\\" + file.replace("/", "\\")
+                # fetching the src and tgt paths from a file appending the base dir
+                src, tgt = self.get_abs_path(file)
 
-                # appending file with destination path and removing the last index (i.e file name)
-                tgt = target_base_path + "\\" + file.replace("/", "\\")
-                tgt = tgt.split("\\")[:-1]
+                # taking the parent directory of the target file and checking if its available
+                # so that the file can be moved
+                tgt = self.get_path_obj(os.path.dirname(tgt))
 
-                cmd = "copy /y {} {}".format(src, "\\".join(tgt))
-                os.system(cmd)
+                # copying the file only if src and dst are available
+                if path.exists(src) is True and path.exists(tgt) is True:
+                    # self.logger.info("Copying {} -> {}".format(src, tgt))
+                    shutil.copy(src, tgt)
 
         except Exception as ex:
             raise Exception("handle_modified_types()  ::  {}".format(ex))
+
+    def handle_added_types(self):
+        """
+        here we copy all the newly added files
+        :return: None
+        """
+        try:
+            for file in self.config_params['file_types']['A']:
+                # fetching the src and tgt paths from a file appending the base dir
+                src, tgt = self.get_abs_path(file)
+
+                # taking dir path so that the src file can move to tgt path
+                tgt = self.get_path_obj(os.path.dirname(tgt))
+
+                # self.logger.critical("{} -> {}".format(src, tgt))
+                # checking dir and files available or not
+                # copying the file only if src and dst are available
+                if path.exists(src) is True:
+                    # creating a target_dir only if src file exists
+                    # else it would be unnecessary to create a dir
+                    if path.exists(tgt) is False:
+                        os.mkdir(tgt)
+
+                    shutil.copy(src, tgt)
+
+        except Exception as ex:
+            raise Exception("handle_added_types()  ::  {}".format(ex))
+
+    def handle_delete_types(self):
+        """
+        here we delete the files which need to be deleted in the commit
+        Firstly we check if file which need to be deleted exists in destination location
+        and if it exists then we delete the file
+        :return: None
+        """
+        try:
+            for file in self.config_params['file_types']['D']:
+                # fetching the abs paths
+                src, tgt = self.get_abs_path(file)
+
+                # self.logger.info("{} -> {}".format(src, tgt))
+
+                # checking dir and files available or not
+                if path.exists(tgt) is True:
+                    # checking if g is file or dir
+                    if os.path.isfile(tgt):
+                        os.remove(tgt)
+
+                    elif os.path.isdir(tgt):
+                        # this removes the dir forcefully even if files exists
+                        shutil.rmtree(tgt)
+
+        except Exception as ex:
+            raise Exception("handle_delete_types  ::  {}".format(ex))
+
+    def handle_renamed_types(self):
+        """
+        this function handles the renamed files and directories
+        :return: None
+        """
+        try:
+            for file in self.config_params['file_types']['R']:
+
+                # checking if exising path which needs to be renamed
+                # is available in target repo or not
+                if file:
+                    old_src, old_tgt = self.get_abs_path(file['existing_path'])
+                    new_src, new_tgt = self.get_abs_path(file['new_path'])
+
+                    # for debugging
+                    # self.logger.info("{} -> {}".format(old_tgt, new_tgt))
+
+                    # checking the file which needs to be renamed
+                    # is available in target repo or not.
+                    # checking if the path is available tgt repo location and renaming it
+                    if os.path.exists(old_tgt) and os.path.exists(new_tgt) is False:
+                        os.rename(old_tgt, new_tgt)
+
+        except Exception as ex:
+            raise Exception("handle_renamed_types()  ::  {}".format(ex))
+
+    @staticmethod
+    def get_path_obj(path):
+        """
+        this function returns a abs path object
+        :param path: a string path
+        :return: a path object
+        """
+        try:
+            return pathlib.Path(path)
+
+        except Exception as ex:
+            raise Exception("get_path_obj()  ::  {}".format(ex))
 
     def main_method(self):
         """
@@ -118,6 +238,8 @@ class GitFeaturePick:
         :return: None
         """
         try:
+            self.logger.info("Initializing the commits collection")
+
             # getting unsorted commits
             self.get_unsorted_commits()
 
@@ -130,9 +252,23 @@ class GitFeaturePick:
                 # identifying the change_types and collecting the items
                 self.identify_changes(commit=commit[0])
 
+                # adding new files
+                self.logger.info("Adding new files for commit  ::  {}".format(commit))
+                self.handle_added_types()
+
                 # copy files function
                 self.logger.info("Coping modified files for commit  ::  {}".format(commit))
                 self.handle_modified_types()
+
+                # removing files / dir
+                self.logger.info("Removing files/dir for commit  ::  {}".format(commit))
+                self.handle_delete_types()
+
+                # rename file/ dir
+                self.logger.info("Handling rename files/dir for commit  ::  {}".format(commit))
+                self.handle_renamed_types()
+
+            self.logger.info("Job Successful!!")
 
         except Exception as ex:
             raise Exception("main_method  ::  {}".format(ex))
@@ -142,4 +278,3 @@ if __name__ == '__main__':
 
     git = GitFeaturePick()
     git.main_method()
-
