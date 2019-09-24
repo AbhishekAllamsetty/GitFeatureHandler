@@ -293,7 +293,7 @@ class GitFeaturePick:
             self.logger.info("Adding all the changes")
             self.target_repo.git.add(u=True)
 
-            # commiting and pushing the changes
+            # committing and pushing the changes
             self.logger.info("Committing and pushing changes")
             self.target_repo.index.commit("Committing Changes")
             self.target_repo.git.push('origin', self.config_params['git_config']['target_branch'])
