@@ -297,8 +297,6 @@ class GitFeaturePick:
             self.logger.info("Committing and pushing changes")
             self.target_repo.index.commit("Committing Changes")
             self.target_repo.git.push('origin', self.config_params['git_config']['target_branch'])
-            # origin = self.target_repo.remote(name=)
-            # origin.push()
 
             self.logger.info("Job Successful!!")
 
