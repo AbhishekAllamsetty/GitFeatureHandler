@@ -1,0 +1,8 @@
+{
+  "git_config": {
+    "expected_jira_id_list": ["EDGE-1122", "EDGE-5566", "EDGE-6666"],
+    "base_repo_path": "D:\\Office_work\\sprint 19.13\\hackahon\\src_repo\\temp_repo",
+    "target_repo_path": "D:\\Office_work\\sprint 19.13\\hackahon\\dst_repo\\temp_repo",
+    "target_branch": "hotfix_test"
+  }
+}
